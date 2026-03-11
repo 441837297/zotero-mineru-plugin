@@ -48,6 +48,13 @@ config: {
 }
 ```
 
+**修改后重新打包**：
+```bash
+# 运行打包脚本
+python build.py
+```
+生成 `mineru-converter.xpi` 安装包。
+
 ## 安装
 
 1. 在 [Releases](../../releases) 下载 `mineru-converter.xpi`

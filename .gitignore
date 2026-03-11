@@ -1,0 +1,17 @@
+# 构建产物
+*.xpi
+
+# 临时文件
+*.log
+*.tmp
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db

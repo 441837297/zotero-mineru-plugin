@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "MinerU PDF Converter",
+  "version": "1.0.0",
+  "description": "Convert PDF to Markdown using MinerU",
+  "homepage_url": "https://github.com/opendatalab/MinerU",
+  "author": "Zotero Community",
+  "icons": {
+    "48": "chrome/content/icons/icon.png",
+    "96": "chrome/content/icons/icon.png"
+  },
+  "applications": {
+    "zotero": {
+      "id": "mineru-converter@zotero.org",
+      "update_url": "https://example.com/update.json",
+      "strict_min_version": "7.0.0-beta.70",
+      "strict_max_version": "8.*"
+    }
+  }
+}

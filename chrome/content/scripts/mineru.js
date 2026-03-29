@@ -167,32 +167,26 @@ Zotero.mineru = {
             progress.addDescription("正在转换: " + item.getDisplayTitle().substring(0, 40) + "...");
             progress.show();
 
-            // 创建批处理文件
-            var batchContent =
-                '@echo off\r\n' +
-                'call "' + Zotero.mineru.config.condaPath + '\\Scripts\\activate.bat" mineru\r\n' +
-                'if errorlevel 1 exit /b 1\r\n' +
-                'set MINERU_MODEL_SOURCE=modelscope\r\n' +
+            // 创建 PowerShell 脚本
+            var psContent =
+                '$ErrorActionPreference = "Stop"\r\n' +
+                '& "' + Zotero.mineru.config.condaPath + '\\Scripts\\activate.ps1" mineru\r\n' +
+                '$env:MINERU_MODEL_SOURCE = "modelscope"\r\n' +
                 'mineru -p "' + pdfPath + '" -o "' + tempDir + '" -b ' + Zotero.mineru.config.backend + '\r\n' +
-                'if errorlevel 1 exit /b 1\r\n' +
-                'for /r "' + tempDir + '" %%f in (*.md) do (\r\n' +
-                '    copy "%%f" "' + tempMdPath + '" >nul\r\n' +
-                '    if not errorlevel 1 exit /b 0\r\n' +
-                ')\r\n' +
-                'exit /b 1\r\n';
+                'Get-ChildItem -Path "' + tempDir + '" -Filter "*.md" -Recurse | Select-Object -First 1 | Copy-Item -Destination "' + tempMdPath + '"\r\n';
 
-            var tempBatch = "C:\\temp\\mineru_run_" + Date.now() + ".bat";
-            Zotero.mineru.writeBatchFile(tempBatch, batchContent);
+            var tempScript = "C:\\temp\\mineru_run_" + Date.now() + ".ps1";
+            Zotero.mineru.writeScript(tempScript, psContent);
 
-            Zotero.mineru.log("Batch: " + tempBatch);
+            Zotero.mineru.log("Script: " + tempScript);
             progress.addDescription("执行 MinerU... (约30-60秒)");
 
             // 执行转换
-            var result = await Zotero.Utilities.Internal.exec(tempBatch, []);
+            var result = await Zotero.Utilities.Internal.exec('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempScript]);
             Zotero.mineru.log("Exit code: " + result);
 
-            // 清理批处理文件
-            Zotero.mineru.removeFile(tempBatch);
+            // 清理脚本文件
+            Zotero.mineru.removeFile(tempScript);
 
             // 获取 FileUtils
             var win = Zotero.getMainWindow();
@@ -263,7 +257,7 @@ Zotero.mineru = {
         }
     },
 
-    writeBatchFile: function(filePath, content) {
+    writeScript: function(filePath, content) {
         var win = this._getWin();
         var FileUtils = win ? win.FileUtils : null;
         if (!FileUtils) throw new Error("FileUtils not available");
@@ -275,7 +269,7 @@ Zotero.mineru = {
 
         var converter = Components.classes["@mozilla.org/intl/converter-output-stream;1"]
             .createInstance(Components.interfaces.nsIConverterOutputStream);
-        converter.init(foStream, "gbk", 0, 0);
+        converter.init(foStream, "utf-8", 0, 0);
         converter.writeString(content);
         converter.close();
     },

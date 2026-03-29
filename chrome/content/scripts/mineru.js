@@ -16,11 +16,6 @@ Zotero.mineru = {
         return Zotero.getMainWindow();
     },
 
-    _getFileUtils: function() {
-        var win = this._getWin();
-        return win ? win.FileUtils : null;
-    },
-
     log: function(msg) {
         Zotero.debug("[MinerU] " + msg);
     },
@@ -195,8 +190,8 @@ Zotero.mineru = {
                 throw new Error("FileUtils not available");
             }
 
-            // 检查结果
-            var tempMdFile = new FileUtils.File(tempMdPath);
+            // 检查结果 - 使用 Zotero 的 getFile 方法创建文件对象
+            var tempMdFile = Zotero.File.pathToFile(tempMdPath);
             if (!tempMdFile.exists()) {
                 progress.addDescription("✗ 转换失败");
                 progress.startCloseTimer(5000);
@@ -217,8 +212,8 @@ Zotero.mineru = {
             // 2. 复制到 Obsidian
             progress.addDescription("复制到 Obsidian...");
 
-            var obsidianDirFile = new FileUtils.File(Zotero.mineru.config.obsidianDir);
-            var obsidianFile = new FileUtils.File(finalObsidianPath);
+            var obsidianDirFile = Zotero.File.pathToFile(Zotero.mineru.config.obsidianDir);
+            var obsidianFile = Zotero.File.pathToFile(finalObsidianPath);
 
             if (obsidianFile.exists()) {
                 obsidianFile.remove(false);
@@ -228,7 +223,7 @@ Zotero.mineru = {
             Zotero.mineru.log("Copied to Obsidian: " + finalObsidianPath);
 
             // 3. 清理临时目录
-            var tempDirFile = new FileUtils.File(tempDir);
+            var tempDirFile = Zotero.File.pathToFile(tempDir);
             if (tempDirFile.exists()) {
                 tempDirFile.remove(true);
             }
@@ -244,11 +239,7 @@ Zotero.mineru = {
 
     ensureDirectory: function(dirPath) {
         try {
-            var win = this._getWin();
-            var FileUtils = win ? win.FileUtils : null;
-            if (!FileUtils) throw new Error("FileUtils not available");
-
-            var dir = new FileUtils.File(dirPath);
+            var dir = Zotero.File.pathToFile(dirPath);
             if (!dir.exists()) {
                 dir.create(Components.interfaces.nsIFile.DIRECTORY_TYPE, 0o755);
             }

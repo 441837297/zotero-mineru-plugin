@@ -7,6 +7,10 @@ MinerU Zotero Plugin Builder
 import zipfile
 import os
 import sys
+import io
+
+# 确保输出使用 UTF-8
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def build_xpi():
     """打包插件为 xpi 文件"""

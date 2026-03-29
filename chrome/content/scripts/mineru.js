@@ -135,6 +135,9 @@ Zotero.mineru = {
                 return;
             }
 
+            // 确保路径使用反斜杠（Windows 格式）
+            pdfPath = pdfPath.replace(/\//g, '\\');
+
             var parentItem = item.parentItem;
             if (!parentItem) {
                 parentItem = item;
@@ -156,42 +159,56 @@ Zotero.mineru = {
             Zotero.mineru.ensureDirectory(Zotero.mineru.config.obsidianDir);
             Zotero.mineru.ensureDirectory("C:\\temp");
 
+            // 将 PDF 复制到纯 ASCII 临时路径（避免 MinerU 中文路径 bug）
+            var ts = Date.now();
+            var tempPdfName = "mineru_input_" + ts + ".pdf";
+            var tempPdf = "C:\\temp\\" + tempPdfName;
+            var srcFile = Components.classes["@mozilla.org/file/local;1"]
+                .createInstance(Components.interfaces.nsIFile);
+            srcFile.initWithPath(pdfPath);
+            var tempDir_obj = Components.classes["@mozilla.org/file/local;1"]
+                .createInstance(Components.interfaces.nsIFile);
+            tempDir_obj.initWithPath("C:\\temp");
+            srcFile.copyTo(tempDir_obj, tempPdfName);
+
             // 显示进度
             var progress = new Zotero.ProgressWindow();
             progress.changeHeadline("MinerU 转换");
             progress.addDescription("正在转换: " + item.getDisplayTitle().substring(0, 40) + "...");
             progress.show();
 
-            // 创建 PowerShell 脚本
-            var psContent =
-                '$ErrorActionPreference = "Stop"\r\n' +
-                '& "' + Zotero.mineru.config.condaPath + '\\Scripts\\activate.ps1" mineru\r\n' +
-                '$env:MINERU_MODEL_SOURCE = "modelscope"\r\n' +
-                'mineru -p "' + pdfPath + '" -o "' + tempDir + '" -b ' + Zotero.mineru.config.backend + '\r\n' +
-                'Get-ChildItem -Path "' + tempDir + '" -Filter "*.md" -Recurse | Select-Object -First 1 | Copy-Item -Destination "' + tempMdPath + '"\r\n';
+            var tempBatch = "C:\\temp\\mineru_run_" + Date.now() + ".bat";
 
-            var tempScript = "C:\\temp\\mineru_run_" + Date.now() + ".ps1";
-            Zotero.mineru.writeScript(tempScript, psContent);
+            // 创建批处理文件（chcp 65001 解决中文/特殊字符路径问题）
+            var batchContent =
+                '@echo off\r\n' +
+                'chcp 65001 >nul\r\n' +
+                'call "' + Zotero.mineru.config.condaPath + '\\Scripts\\activate.bat" mineru\r\n' +
+                'if errorlevel 1 exit /b 1\r\n' +
+                'set MINERU_MODEL_SOURCE=modelscope\r\n' +
+                'mineru -p "' + tempPdf + '" -o "' + tempDir + '" -b ' + Zotero.mineru.config.backend + '\r\n' +
+                'if errorlevel 1 exit /b 1\r\n' +
+                'for /r "' + tempDir + '" %%f in (*.md) do (\r\n' +
+                '    copy "%%f" "' + tempMdPath + '" >nul\r\n' +
+                '    if not errorlevel 1 exit /b 0\r\n' +
+                ')\r\n' +
+                'exit /b 1\r\n';
+            Zotero.mineru.writeScript(tempBatch, batchContent);
 
-            Zotero.mineru.log("Script: " + tempScript);
+            Zotero.mineru.log("Batch: " + tempBatch);
             progress.addDescription("执行 MinerU... (约30-60秒)");
 
             // 执行转换
-            var result = await Zotero.Utilities.Internal.exec('pwsh', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempScript]);
+            var result = await Zotero.Utilities.Internal.exec(tempBatch, []);
             Zotero.mineru.log("Exit code: " + result);
 
-            // 清理脚本文件
-            Zotero.mineru.removeFile(tempScript);
+            // 清理批处理文件
+            Zotero.mineru.removeFile(tempBatch);
 
-            // 获取 FileUtils
-            var win = Zotero.getMainWindow();
-            var FileUtils = win ? win.FileUtils : null;
-            if (!FileUtils) {
-                throw new Error("FileUtils not available");
-            }
-
-            // 检查结果 - 使用 Zotero 的 getFile 方法创建文件对象
-            var tempMdFile = Zotero.File.pathToFile(tempMdPath);
+            // 检查结果
+            var tempMdFile = Components.classes["@mozilla.org/file/local;1"]
+                .createInstance(Components.interfaces.nsIFile);
+            tempMdFile.initWithPath(tempMdPath);
             if (!tempMdFile.exists()) {
                 progress.addDescription("✗ 转换失败");
                 progress.startCloseTimer(5000);
@@ -212,8 +229,13 @@ Zotero.mineru = {
             // 2. 复制到 Obsidian
             progress.addDescription("复制到 Obsidian...");
 
-            var obsidianDirFile = Zotero.File.pathToFile(Zotero.mineru.config.obsidianDir);
-            var obsidianFile = Zotero.File.pathToFile(finalObsidianPath);
+            var obsidianDirFile = Components.classes["@mozilla.org/file/local;1"]
+                .createInstance(Components.interfaces.nsIFile);
+            obsidianDirFile.initWithPath(Zotero.mineru.config.obsidianDir);
+
+            var obsidianFile = Components.classes["@mozilla.org/file/local;1"]
+                .createInstance(Components.interfaces.nsIFile);
+            obsidianFile.initWithPath(finalObsidianPath);
 
             if (obsidianFile.exists()) {
                 obsidianFile.remove(false);
@@ -222,8 +244,11 @@ Zotero.mineru = {
             tempMdFile.copyTo(obsidianDirFile, baseName + ".md");
             Zotero.mineru.log("Copied to Obsidian: " + finalObsidianPath);
 
-            // 3. 清理临时目录
-            var tempDirFile = Zotero.File.pathToFile(tempDir);
+            // 3. 清理临时目录和临时 PDF
+            Zotero.mineru.removeFile(tempPdf);
+            var tempDirFile = Components.classes["@mozilla.org/file/local;1"]
+                .createInstance(Components.interfaces.nsIFile);
+            tempDirFile.initWithPath(tempDir);
             if (tempDirFile.exists()) {
                 tempDirFile.remove(true);
             }

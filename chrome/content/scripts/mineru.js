@@ -249,11 +249,7 @@ Zotero.mineru = {
     },
 
     writeScript: function(filePath, content) {
-        var win = this._getWin();
-        var FileUtils = win ? win.FileUtils : null;
-        if (!FileUtils) throw new Error("FileUtils not available");
-
-        var file = new FileUtils.File(filePath);
+        var file = Zotero.File.pathToFile(filePath);
         var foStream = Components.classes["@mozilla.org/network/file-output-stream;1"]
             .createInstance(Components.interfaces.nsIFileOutputStream);
         foStream.init(file, 0x02 | 0x08 | 0x20, 0o666, 0);
@@ -267,11 +263,7 @@ Zotero.mineru = {
 
     removeFile: function(filePath) {
         try {
-            var win = this._getWin();
-            var FileUtils = win ? win.FileUtils : null;
-            if (!FileUtils) return;
-
-            var file = new FileUtils.File(filePath);
+            var file = Zotero.File.pathToFile(filePath);
             if (file.exists()) {
                 file.remove(false);
             }

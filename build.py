@@ -27,7 +27,7 @@ def build_xpi():
         'chrome',
     ]
 
-    output_file = 'zotero-mineru-converter-1.0.0.xpi'
+    output_file = 'zotero-mineru-converter-1.0.2.xpi'
     install_file = 'mineru-converter.xpi'
 
     # 删除旧的 xpi

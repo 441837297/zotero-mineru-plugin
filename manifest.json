@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "MinerU PDF Converter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Convert PDF to Markdown using MinerU",
   "homepage_url": "https://github.com/opendatalab/MinerU",
   "author": "Zotero Community",

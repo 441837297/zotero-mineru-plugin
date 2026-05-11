@@ -4,7 +4,7 @@
 
 ## 为什么开发
 
-使用 AI 工具阅读论文时，**Markdown 格式比 PDF 识别准确率更高**（公式、表格、图片位置都能保留）。本插件让你可以在 Zotero 中一键转换 PDF，生成的 Markdown 保存为 Zotero 附件，适配 **KISS 文献工作流**。
+使用 AI 工具阅读论文时，**Markdown 格式比 PDF 识别准确率更高**（公式、表格、图片位置都能保留）。本插件让你可以在 Zotero 中一键转换 PDF，生成的 Markdown 保存为 Zotero 附件，适配 **Ocean Literature Harbor 工作流**。
 
 ## 功能特点
 

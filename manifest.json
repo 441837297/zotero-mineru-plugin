@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "MinerU PDF Converter",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Convert Zotero PDF attachments to Markdown using MinerU and save Markdown as Zotero attachments.",
   "homepage_url": "https://github.com/opendatalab/MinerU",
   "author": "Zotero Community",

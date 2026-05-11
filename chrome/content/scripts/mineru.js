@@ -1,6 +1,6 @@
 // MinerU Converter Plugin for Zotero
 // 将 PDF 转换为 Markdown，并作为 Zotero 附件保存。
-// Obsidian 索引与 Zotero Note 由 LLM / KISS Skill 后续处理。
+// Obsidian 索引与 Zotero Note 由 ocean-literature-harbor (OLH) 后续处理。
 // References 清理由 LLM 在读取 Markdown 阶段处理，插件不删除 References。
 
 Zotero.mineru = {

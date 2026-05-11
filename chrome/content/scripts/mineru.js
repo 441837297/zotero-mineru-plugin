@@ -1,15 +1,15 @@
 // MinerU Converter Plugin for Zotero
-// 将 PDF 转换为 Markdown，保存到 Zotero 并复制到 Obsidian
+// 将 PDF 转换为 Markdown，并作为 Zotero 附件保存。
+// Obsidian 索引与 Zotero Note 由 LLM / KISS Skill 后续处理。
+// References 清理由 LLM 在读取 Markdown 阶段处理，插件不删除 References。
 
-// Use Zotero.mineru namespace like doc2x does
 Zotero.mineru = {
     menuId: "mineru-convert-menu",
 
-    // 配置
     config: {
-        obsidianDir: "C:\\Users\\zhisheng\\Documents\\zhisheng_obsidian\\papers\\_inbox",
         condaPath: "C:\\ProgramData\\miniconda3",
-        backend: "pipeline"  // 可选: pipeline, vlm-auto-engine
+        backend: "pipeline",
+        tempRoot: "C:\\temp"
     },
 
     _getWin: function() {
@@ -29,26 +29,22 @@ Zotero.mineru = {
         }
     },
 
+    showConfirm: function(title, msg) {
+        var ps = Components.classes["@mozilla.org/embedcomp/prompt-service;1"]
+            .getService(Components.interfaces.nsIPromptService);
+        return ps.confirm(null, title, msg);
+    },
+
     hooks: {
         refresh: function() {
-            // Called after script is loaded, init main window if available
             var win = Zotero.getMainWindow();
-            if (!win || !win.document) {
-                // Window not ready, will be called by onMainWindowLoad callback
-                return;
-            }
+            if (!win || !win.document) return;
             Zotero.mineru.hooks.onMainWindowLoad(win);
         },
 
         onMainWindowLoad: function(win) {
-            // Ensure menu is set up
             if (!win || !win.document) return;
-
-            // Check if menu already exists
-            if (win.document.getElementById(Zotero.mineru.menuId)) {
-                return; // Already set up
-            }
-
+            if (win.document.getElementById(Zotero.mineru.menuId)) return;
             Zotero.mineru.setupMenu(win);
         },
 
@@ -60,9 +56,7 @@ Zotero.mineru = {
 
         shutdown: function() {
             var win = Zotero.getMainWindow();
-            if (win) {
-                Zotero.mineru.hooks.onMainWindowUnload(win);
-            }
+            if (win) Zotero.mineru.hooks.onMainWindowUnload(win);
         }
     },
 
@@ -127,6 +121,27 @@ Zotero.mineru = {
         }
     },
 
+    hasMineruMarkdownAttachment: async function(parentItem) {
+        try {
+            var attachmentIDs = parentItem.getAttachments();
+            for (var j = 0; j < attachmentIDs.length; j++) {
+                var att = await Zotero.Items.getAsync(attachmentIDs[j]);
+                if (!att) continue;
+                var title = att.getField("title") || "";
+                // 检查是否为 .md 扩展名的附件
+                if (att.isAttachment()) {
+                    try {
+                        var fpath = att.getFilePath();
+                        if (fpath && fpath.toLowerCase().endsWith(".md")) return true;
+                    } catch (e2) {}
+                }
+            }
+        } catch (e) {
+            Zotero.mineru.log("Duplicate check error: " + e);
+        }
+        return false;
+    },
+
     convert: async function(item) {
         try {
             var pdfPath = item.getFilePath();
@@ -135,7 +150,6 @@ Zotero.mineru = {
                 return;
             }
 
-            // 确保路径使用反斜杠（Windows 格式）
             pdfPath = pdfPath.replace(/\//g, '\\');
 
             var parentItem = item.parentItem;
@@ -143,33 +157,42 @@ Zotero.mineru = {
                 parentItem = item;
             }
 
-            // 生成文件名：author-year-title 格式
-            var baseName = Zotero.mineru.generateFileName(parentItem);
+            // 检查重复 Markdown 附件
+            var hasExistingMD = await Zotero.mineru.hasMineruMarkdownAttachment(parentItem);
+            if (hasExistingMD) {
+                var userConfirmed = Zotero.mineru.showConfirm(
+                    "MinerU",
+                    "该文献似乎已有 MinerU Markdown 附件，是否仍然继续生成新的 Markdown 附件？"
+                );
+                if (!userConfirmed) {
+                    Zotero.mineru.log("用户取消：已存在 MinerU Markdown 附件");
+                    return;
+                }
+            }
 
-            // 路径设置
-            var tempDir = "C:\\temp\\mineru_" + Date.now();
+            var baseName = Zotero.mineru.generateFileName(parentItem);
+            var tempRoot = Zotero.mineru.config.tempRoot;
+            var tempDir = tempRoot + "\\mineru_" + Date.now();
             var tempMdPath = tempDir + "\\output.md";
-            var finalObsidianPath = Zotero.mineru.config.obsidianDir + "\\" + baseName + ".md";
 
             Zotero.mineru.log("PDF: " + pdfPath);
-            Zotero.mineru.log("Temp: " + tempDir);
-            Zotero.mineru.log("Obsidian: " + finalObsidianPath);
+            Zotero.mineru.log("Temp root: " + tempRoot);
+            Zotero.mineru.log("Temp dir: " + tempDir);
 
-            // 确保目录存在
-            Zotero.mineru.ensureDirectory(Zotero.mineru.config.obsidianDir);
-            Zotero.mineru.ensureDirectory("C:\\temp");
+            // 确保临时目录存在
+            Zotero.mineru.ensureDirectory(tempRoot);
 
             // 将 PDF 复制到纯 ASCII 临时路径（避免 MinerU 中文路径 bug）
             var ts = Date.now();
             var tempPdfName = "mineru_input_" + ts + ".pdf";
-            var tempPdf = "C:\\temp\\" + tempPdfName;
+            var tempPdf = tempRoot + "\\" + tempPdfName;
             var srcFile = Components.classes["@mozilla.org/file/local;1"]
                 .createInstance(Components.interfaces.nsIFile);
             srcFile.initWithPath(pdfPath);
-            var tempDir_obj = Components.classes["@mozilla.org/file/local;1"]
+            var tempDirObj = Components.classes["@mozilla.org/file/local;1"]
                 .createInstance(Components.interfaces.nsIFile);
-            tempDir_obj.initWithPath("C:\\temp");
-            srcFile.copyTo(tempDir_obj, tempPdfName);
+            tempDirObj.initWithPath(tempRoot);
+            srcFile.copyTo(tempDirObj, tempPdfName);
 
             // 显示进度
             var progress = new Zotero.ProgressWindow();
@@ -177,9 +200,8 @@ Zotero.mineru = {
             progress.addDescription("正在转换: " + item.getDisplayTitle().substring(0, 40) + "...");
             progress.show();
 
-            var tempBatch = "C:\\temp\\mineru_run_" + Date.now() + ".bat";
+            var tempBatch = tempRoot + "\\mineru_run_" + Date.now() + ".bat";
 
-            // 创建批处理文件（chcp 65001 解决中文/特殊字符路径问题）
             var batchContent =
                 '@echo off\r\n' +
                 'chcp 65001 >nul\r\n' +
@@ -200,7 +222,6 @@ Zotero.mineru = {
 
             // 执行转换
             var result = await Zotero.Utilities.Internal.exec(tempBatch, []);
-            Zotero.mineru.log("Exit code: " + result);
 
             // 清理批处理文件
             Zotero.mineru.removeFile(tempBatch);
@@ -215,36 +236,20 @@ Zotero.mineru = {
                 return;
             }
 
-            progress.addDescription("导入到 Zotero...");
+            Zotero.mineru.log("MD output: " + tempMdPath);
 
-            // 1. 导入到 Zotero
+            progress.addDescription("导入 Markdown 到 Zotero...");
+
+            // 导入到 Zotero（使用字符串路径，避免 nsIFile.copyToFollowingLinks 问题）
             var importedAttachment = await Zotero.Attachments.importFromFile({
-                file: tempMdFile,
+                file: tempMdPath,
                 parentItemID: parentItem.id,
                 title: baseName
             });
 
-            Zotero.mineru.log("Imported to Zotero: " + importedAttachment.id);
+            Zotero.mineru.log("Imported to Zotero, attachment id: " + importedAttachment.id);
 
-            // 2. 复制到 Obsidian
-            progress.addDescription("复制到 Obsidian...");
-
-            var obsidianDirFile = Components.classes["@mozilla.org/file/local;1"]
-                .createInstance(Components.interfaces.nsIFile);
-            obsidianDirFile.initWithPath(Zotero.mineru.config.obsidianDir);
-
-            var obsidianFile = Components.classes["@mozilla.org/file/local;1"]
-                .createInstance(Components.interfaces.nsIFile);
-            obsidianFile.initWithPath(finalObsidianPath);
-
-            if (obsidianFile.exists()) {
-                obsidianFile.remove(false);
-            }
-
-            tempMdFile.copyTo(obsidianDirFile, baseName + ".md");
-            Zotero.mineru.log("Copied to Obsidian: " + finalObsidianPath);
-
-            // 3. 清理临时目录和临时 PDF
+            // 清理临时目录和临时 PDF
             Zotero.mineru.removeFile(tempPdf);
             var tempDirFile = Components.classes["@mozilla.org/file/local;1"]
                 .createInstance(Components.interfaces.nsIFile);
@@ -253,7 +258,7 @@ Zotero.mineru = {
                 tempDirFile.remove(true);
             }
 
-            progress.addDescription("✓ 完成!");
+            progress.addDescription("✓ 完成：Markdown 已保存为 Zotero 附件");
             progress.startCloseTimer(3000);
 
         } catch (e) {
@@ -296,7 +301,6 @@ Zotero.mineru = {
     },
 
     generateFileName: function(item) {
-        // 获取作者
         var creators = item.getCreators();
         var author = "Unknown";
         if (creators && creators.length > 0) {
@@ -304,14 +308,10 @@ Zotero.mineru = {
             author = firstCreator.lastName || firstCreator.name || "Unknown";
         }
 
-        // 获取年份
         var year = item.getField('year') || '';
-
-        // 获取标题（前40个字符）
         var title = item.getField('title') || '';
         title = title.substring(0, 40).trim();
 
-        // 清理特殊字符
         var sanitize = function(str) {
             return str.replace(/[\s<>:"/\\|?*]/g, '_');
         };
@@ -320,12 +320,10 @@ Zotero.mineru = {
         year = sanitize(year);
         title = sanitize(title);
 
-        // 组合文件名：author-year-title
         var fileName = author;
         if (year) fileName += "-" + year;
         if (title) fileName += "-" + title;
 
-        // 如果文件名为空，使用默认格式
         if (!fileName || fileName === "Unknown") {
             fileName = "MinerU_" + Date.now();
         }
@@ -337,10 +335,10 @@ Zotero.mineru = {
 // Initialize
 var win = Zotero.getMainWindow();
 if (win && win.document.readyState === "complete") {
-    window.MinerUConverter.setupMenu(win);
+    Zotero.mineru.hooks.onMainWindowLoad(win);
 } else if (win) {
     win.addEventListener("load", function onLoad() {
         win.removeEventListener("load", onLoad);
-        window.MinerUConverter.setupMenu(win);
+        Zotero.mineru.hooks.onMainWindowLoad(win);
     });
 }

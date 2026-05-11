@@ -4,14 +4,14 @@
 
 ## 为什么开发
 
-使用 AI 工具阅读论文时，**Markdown 格式比 PDF 识别准确率更高**（公式、表格、图片位置都能保留）。本插件让你可以在 Zotero 中一键转换 PDF，同时保存到 Zotero 附件和 Obsidian，实现**文献管理 → AI 阅读**的无缝工作流。
+使用 AI 工具阅读论文时，**Markdown 格式比 PDF 识别准确率更高**（公式、表格、图片位置都能保留）。本插件让你可以在 Zotero 中一键转换 PDF，生成的 Markdown 保存为 Zotero 附件，适配 **KISS 文献工作流**。
 
 ## 功能特点
 
-- **一键转换**：右键 PDF 附件即可转换为 Markdown
-- **本地 GPU 加速**：利用显卡解析，无需上传云端，保护隐私
-- **双保存机制**：同时保存到 Zotero 附件和 Obsidian 目录
-- **自动命名**：文件名格式为 `author-year-title`
+- **一键转换**：右键 Zotero PDF 附件即可转换为 Markdown
+- **本地 GPU 加速**：利用 MinerU 本地解析，无需上传云端，保护隐私
+- **Zotero-only 保存**：转换后的 Markdown 只保存为 Zotero 父文献条目下的附件
+- **适配 KISS 文献工作流**：后续由 Zotero MCP / LLM 读取 Markdown，生成 Zotero Note 和 Obsidian 索引
 
 ## 前置要求
 
@@ -36,15 +36,15 @@ mineru download
 
 ```javascript
 config: {
-    // Obsidian 笔记目录（转换后的文件保存到这里）
-    obsidianDir: "C:\\Users\\用户名\\Documents\\Obsidian\\papers\\_inbox",
-
     // Conda 安装路径（用于激活 mineru 环境）
     // 查找方法: 命令行运行 `where conda`
     condaPath: "C:\\ProgramData\\miniconda3",
 
     // 解析后端: pipeline (6GB显存,推荐) 或 vlm-auto-engine (8GB显存,精度更高)
-    backend: "pipeline"
+    backend: "pipeline",
+
+    // 临时文件根目录（MinerU 输出和临时文件存放处）
+    tempRoot: "C:\\temp"
 }
 ```
 
@@ -67,9 +67,17 @@ python build.py
 2. 选择 **"用 MinerU 转换为 Markdown"**
 3. 等待转换完成（约30-60秒）
 
-转换后的 Markdown 同时保存在：
-- **Zotero**：文献条目的附件中
-- **Obsidian**：配置的 `_inbox` 目录
+转换后的 Markdown 保存在：
+- **Zotero**：当前 PDF 所属父文献条目的附件中，标题为 `MinerU Markdown | author-year-title`
+
+## KISS 工作流说明
+
+本插件只负责 **PDF → Markdown → Zotero 附件**。
+
+以下步骤由其他工具处理：
+- 文献笔记（Zotero Note）、核心文献索引、灵感索引 → 由 `zotero-literature-kiss` skill 或其他 LLM 工作流处理
+- Markdown 文末 References 清理 → 由 LLM 在读取 Markdown 时在内存中完成
+- Obsidian 索引维护 → 由 LLM 直接读写 Obsidian 文件
 
 ## 故障排除
 
@@ -79,6 +87,7 @@ python build.py
 | 转换没有反应 | 确认 `conda activate mineru` 后能运行 `mineru --version`；检查 `condaPath` 配置 |
 | 显存不足 | 切换到 `pipeline` 后端；关闭其他占用显存的程序 |
 | 模型下载失败 | `set MINERU_MODEL_SOURCE=modelscope` 后重新 `mineru download` |
+| 临时目录不存在 | 检查 `tempRoot` 路径是否存在且有写入权限 |
 
 ## 相关链接
 

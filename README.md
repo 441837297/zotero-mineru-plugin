@@ -11,7 +11,7 @@
 - **一键转换**：右键 Zotero PDF 附件即可转换为 Markdown
 - **本地 GPU 加速**：利用 MinerU 本地解析，无需上传云端，保护隐私
 - **Zotero-only 保存**：转换后的 Markdown 只保存为 Zotero 父文献条目下的附件
-- **适配 KISS 文献工作流**：后续由 Zotero MCP / LLM 读取 Markdown，生成 Zotero Note 和 Obsidian 索引
+- **适配 Ocean Literature Harbor 工作流**：后续由 Zotero MCP / LLM 读取 Markdown，生成 Zotero Note 和 Obsidian 索引
 
 ## 前置要求
 
@@ -70,12 +70,12 @@ python build.py
 转换后的 Markdown 保存在：
 - **Zotero**：当前 PDF 所属父文献条目的附件中，标题为 `MinerU Markdown | author-year-title`
 
-## KISS 工作流说明
+## Ocean Literature Harbor 工作流说明
 
 本插件只负责 **PDF → Markdown → Zotero 附件**。
 
 以下步骤由其他工具处理：
-- 文献笔记（Zotero Note）、核心文献索引、灵感索引 → 由 `zotero-literature-kiss` skill 或其他 LLM 工作流处理
+- 文献笔记（Zotero Note）、核心文献索引、灵感索引 → 由 `ocean-literature-harbor` skill 处理
 - Markdown 文末 References 清理 → 由 LLM 在读取 Markdown 时在内存中完成
 - Obsidian 索引维护 → 由 LLM 直接读写 Obsidian 文件
 
